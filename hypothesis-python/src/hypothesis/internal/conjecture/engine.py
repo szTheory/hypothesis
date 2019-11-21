@@ -559,7 +559,12 @@ class ConjectureRunner(object):
             # because any fixed size might be too small, and any size based
             # on the strategy in general can fall afoul of strategies that
             # have very different sizes for different prefixes.
-            if self.valid_examples <= max(10, min(self.settings.max_examples // 10, 50)):
+            small_example_cap = max(10, min(self.settings.max_examples // 10, 50))
+
+            if (
+                self.valid_examples <= small_example_cap
+                and self.call_count <= 5 * small_example_cap
+            ):
                 # If we didn't get a valid example then we can't reliably
                 # use the length to predict the size of the buffer, so we
                 # just take a rough guess.
@@ -571,9 +576,9 @@ class ConjectureRunner(object):
                     )
 
                     if minimal_example.status >= Status.VALID:
-                        max_length = (len(minimal_example.buffer) - len(prefix)) * 10 + len(
-                            prefix
-                        )
+                        max_length = (
+                            len(minimal_example.buffer) - len(prefix)
+                        ) * 10 + len(prefix)
                         consecutive_zero_extend_is_invalid = 0
                     else:
                         consecutive_zero_extend_is_invalid += 1
