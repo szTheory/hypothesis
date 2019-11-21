@@ -552,7 +552,6 @@ class ConjectureRunner(object):
             # on the strategy in general can fall afoul of strategies that
             # have very different sizes for different prefixes.
             if self.valid_examples <= max(10, self.settings.max_examples // 10):
-                prev_calls = self.call_count
                 minimal_example = self.cached_test_function(
                     prefix + hbytes(BUFFER_SIZE)
                 )
@@ -562,26 +561,16 @@ class ConjectureRunner(object):
                 if not should_generate_more():
                     break
 
-                if (
-                    # If the minimal example starting from a prefix isn't valid,
-                    # we skip over it while we're looking for small examples.
-                    # This lets us avoid cases where we can't easily predict
-                    # the length while we're in this mode.
-                    minimal_example.status < Status.VALID
-                    # If the example is valid and we've read all of it then
-                    # there's nothing left to do here.
-                    or len(minimal_example.buffer) == len(prefix)
-                    # We might have exhausted the prefix when we explored
-                    # all of the zeroes.
-                    or self.tree.is_prefix_exhausted(prefix)
-                ):
-                    # There are some circumstances where we fail repeatedly
-                    # with a large block of bytes right towards the end.
-                    # This results in us repeatedly generating the same prefix,
-                    # and we want to avoid getting stuck in an infinite loop
-                    # here. This should very rarely happen in real examples.
-                    if self.call_count > prev_calls:
-                        continue
+                # We might have exhausted the prefix when we tried zero-extending
+                # it. If so, there's nothing more to do here.
+                if self.tree.is_prefix_exhausted(prefix):
+                    continue
+
+                if minimal_example.status < Status.VALID:
+                    # If we didn't get a valid example then we can't reliably
+                    # use the length to predict the size of the buffer, so we
+                    # just take a rough guess.
+                    max_length = max(len(prefix) * 10, BUFFER_SIZE // 10)
                 else:
                     max_length = (len(minimal_example.buffer) - len(prefix)) * 10 + len(
                         prefix
