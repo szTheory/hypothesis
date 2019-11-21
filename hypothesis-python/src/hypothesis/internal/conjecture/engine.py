@@ -528,10 +528,18 @@ class ConjectureRunner(object):
         parameter = GenerationParameters(self.random)
         count = 0
 
+        # We use two strategies to choose the maximum test case size.
+        # Ideally we use the precise estimate which is basd on zero extending
+        # the prefix to get what is (probably) the smallest size a valid example
+        # can have. However, if this doesn't work then we have to fall back to
+        # an imprecise estimate, and this can result in a lot of additional
+        # useless calls to the test function. In order to avoid this scenario
+        # we keep track of how many times in a row this happens, and switch
+        # to a strategy of always using the approximate version.
+        consecutive_zero_extend_is_invalid = 0
+
         while should_generate_more():
             prefix = self.generate_novel_prefix()
-
-            max_length = BUFFER_SIZE
 
             # We control growth during initial example generation, for two
             # reasons:
@@ -552,9 +560,23 @@ class ConjectureRunner(object):
             # on the strategy in general can fall afoul of strategies that
             # have very different sizes for different prefixes.
             if self.valid_examples <= max(10, self.settings.max_examples // 10):
-                minimal_example = self.cached_test_function(
-                    prefix + hbytes(BUFFER_SIZE)
-                )
+                # If we didn't get a valid example then we can't reliably
+                # use the length to predict the size of the buffer, so we
+                # just take a rough guess.
+                max_length = max(len(prefix) * 10, BUFFER_SIZE // 10)
+
+                if consecutive_zero_extend_is_invalid < 3:
+                    minimal_example = self.cached_test_function(
+                        prefix + hbytes(BUFFER_SIZE)
+                    )
+
+                    if minimal_example.status >= Status.VALID:
+                        max_length = (len(minimal_example.buffer) - len(prefix)) * 10 + len(
+                            prefix
+                        )
+                        consecutive_zero_extend_is_invalid = 0
+                    else:
+                        consecutive_zero_extend_is_invalid += 1
 
                 # We might have hit the cap on number of examples we should
                 # run when calculating the minimal example.
@@ -565,16 +587,8 @@ class ConjectureRunner(object):
                 # it. If so, there's nothing more to do here.
                 if self.tree.is_prefix_exhausted(prefix):
                     continue
-
-                if minimal_example.status < Status.VALID:
-                    # If we didn't get a valid example then we can't reliably
-                    # use the length to predict the size of the buffer, so we
-                    # just take a rough guess.
-                    max_length = max(len(prefix) * 10, BUFFER_SIZE // 10)
-                else:
-                    max_length = (len(minimal_example.buffer) - len(prefix)) * 10 + len(
-                        prefix
-                    )
+            else:
+                max_length = BUFFER_SIZE
 
             # We could end up in a situation where even though the prefix was
             # novel when we generated it, because we've now tried zero extending
