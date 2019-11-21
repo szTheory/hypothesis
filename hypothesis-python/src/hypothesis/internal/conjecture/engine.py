@@ -587,11 +587,6 @@ class ConjectureRunner(object):
                 # run when calculating the minimal example.
                 if not should_generate_more():
                     break
-
-                # We might have exhausted the prefix when we tried zero-extending
-                # it. If so, there's nothing more to do here.
-                if self.tree.is_prefix_exhausted(prefix):
-                    continue
             else:
                 max_length = BUFFER_SIZE
 
@@ -611,6 +606,11 @@ class ConjectureRunner(object):
                 continue
             except PreviouslyUnseenBehaviour:
                 pass
+
+            # If the simulation entered part of the tree that has been killed,
+            # we don't want to run this.
+            if trial_data.observer.killed:
+                continue
 
             data = self.new_conjecture_data(
                 draw_bytes_with(trial_data.buffer, parameter), max_length=max_length

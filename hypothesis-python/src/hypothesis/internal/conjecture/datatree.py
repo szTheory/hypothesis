@@ -211,26 +211,6 @@ class DataTree(object):
         described must have been fully explored."""
         return self.root.is_exhausted
 
-    def is_prefix_exhausted(self, prefix):
-        """Checks if there are no novel examples left below this prefix."""
-
-        class CheckExhausted(DataObserver):
-            killed = False
-
-            def kill_branch(self):
-                self.killed = True
-
-        try:
-            observer = CheckExhausted()
-            data = ConjectureData.for_buffer(prefix, observer=observer)
-            self.simulate_test_function(data)
-        except PreviouslyUnseenBehaviour:
-            return False
-        except StopTest:
-            pass
-
-        return (data.status != Status.OVERRUN) or observer.killed
-
     def generate_novel_prefix(self, random):
         """Generate a short random string that (after rewriting) is not
         a prefix of any buffer previously added to the tree.
@@ -349,7 +329,7 @@ class TreeRecordingObserver(DataObserver):
         self.__current_node = tree.root
         self.__index_in_current_node = 0
         self.__trail = [self.__current_node]
-        self.__killed = False
+        self.killed = False
 
     def draw_bits(self, n_bits, forced, value):
         i = self.__index_in_current_node
@@ -401,10 +381,10 @@ class TreeRecordingObserver(DataObserver):
 
     def kill_branch(self):
         """Mark this part of the tree as not worth re-exploring."""
-        if self.__killed:
+        if self.killed:
             return
 
-        self.__killed = True
+        self.killed = True
 
         if self.__index_in_current_node < len(self.__current_node.values) or (
             self.__current_node.transition is not None
@@ -452,7 +432,7 @@ class TreeRecordingObserver(DataObserver):
         node.check_exhausted()
         assert len(node.values) > 0 or node.check_exhausted()
 
-        if not self.__killed:
+        if not self.killed:
             self.__update_exhausted()
 
     def __update_exhausted(self):
