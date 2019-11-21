@@ -570,7 +570,7 @@ class ConjectureRunner(object):
                 # just take a rough guess.
                 max_length = max(len(prefix) * 10, BUFFER_SIZE // 10)
 
-                if consecutive_zero_extend_is_invalid < 3:
+                if consecutive_zero_extend_is_invalid < 5:
                     minimal_example = self.cached_test_function(
                         prefix + hbytes(BUFFER_SIZE)
                     )
