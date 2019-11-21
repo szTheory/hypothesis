@@ -559,7 +559,7 @@ class ConjectureRunner(object):
             # because any fixed size might be too small, and any size based
             # on the strategy in general can fall afoul of strategies that
             # have very different sizes for different prefixes.
-            if self.valid_examples <= max(10, self.settings.max_examples // 10):
+            if self.valid_examples <= max(10, min(self.settings.max_examples // 10, 50)):
                 # If we didn't get a valid example then we can't reliably
                 # use the length to predict the size of the buffer, so we
                 # just take a rough guess.
