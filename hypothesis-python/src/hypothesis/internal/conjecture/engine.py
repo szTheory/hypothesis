@@ -527,7 +527,57 @@ class ConjectureRunner(object):
         while should_generate_more():
             prefix = self.generate_novel_prefix()
 
-            data = self.new_conjecture_data(draw_bytes_with(prefix, parameter))
+            max_length = BUFFER_SIZE
+
+            # We control growth during initial example generation, for two
+            # reasons:
+            #
+            # * It gives us an opportunity to find small examples early, which
+            #   gives us a fast path for easy to find bugs.
+            # * It avoids low probability events where we might end up
+            #   generating very large examples during health checks, which
+            #   on slower machines can trigger HealthCheck.too_slow.
+            #
+            # The heuristic we use is that we attempt to estimate the smallest
+            # extension of this prefix, and limit the size to no more than
+            # an order of magnitude larger than that. If we fail to estimate
+            # the size accurately, we skip over this prefix and try again.
+            #
+            # We need to tune the example size based on the initial prefix,
+            # because any fixed size might be too small, and any size based
+            # on the strategy in general can fall afoul of strategies that
+            # have very different sizes for different prefixes.
+            if self.valid_examples <= max(10, self.settings.max_examples // 10):
+                prev_calls = self.call_count
+                minimal_example = self.cached_test_function(
+                    prefix + hbytes(BUFFER_SIZE)
+                )
+
+                if (
+                    # If the minimal example starting from a prefix isn't valid,
+                    # we skip over it while we're looking for small examples.
+                    # This lets us avoid cases where we can't easily predict
+                    # the length while we're in this mode.
+                    minimal_example.status < Status.VALID
+                    # If the example is valid and we've read all of it then
+                    # there's nothing left to do here.
+                    or len(minimal_example.buffer) == len(prefix)
+                ):
+                    # There are some circumstances where we fail repeatedly
+                    # with a large block of bytes right towards the end.
+                    # This results in us repeatedly generating the same prefix,
+                    # and we want to avoid getting stuck in an infinite loop
+                    # here. This should very rarely happen in real examples.
+                    if self.call_count > prev_calls:
+                        continue
+                else:
+                    max_length = (len(minimal_example.buffer) - len(prefix)) * 10 + len(
+                        prefix
+                    )
+
+            data = self.new_conjecture_data(
+                draw_bytes_with(prefix, parameter), max_length=max_length
+            )
             self.test_function(data)
 
             self.optimise_all(data)
@@ -554,10 +604,10 @@ class ConjectureRunner(object):
         self.shrink_interesting_examples()
         self.exit_with(ExitReason.finished)
 
-    def new_conjecture_data(self, draw_bytes):
+    def new_conjecture_data(self, draw_bytes, max_length=BUFFER_SIZE):
         return ConjectureData(
             draw_bytes=draw_bytes,
-            max_length=BUFFER_SIZE,
+            max_length=max_length,
             observer=self.tree.new_observer(),
         )
 
