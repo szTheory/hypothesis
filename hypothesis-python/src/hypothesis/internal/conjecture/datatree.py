@@ -211,6 +211,26 @@ class DataTree(object):
         described must have been fully explored."""
         return self.root.is_exhausted
 
+    def is_prefix_exhausted(self, prefix):
+        """Checks if there are no novel examples left below this prefix."""
+
+        class CheckExhausted(DataObserver):
+            killed = False
+
+            def kill_branch(self):
+                self.killed = True
+
+        try:
+            observer = CheckExhausted()
+            data = ConjectureData.for_buffer(prefix, observer=observer)
+            self.simulate_test_function(data)
+        except PreviouslyUnseenBehaviour:
+            return False
+        except StopTest:
+            pass
+
+        return (data.status != Status.OVERRUN) or observer.killed
+
     def generate_novel_prefix(self, random):
         """Generate a short random string that (after rewriting) is not
         a prefix of any buffer previously added to the tree.
@@ -315,6 +335,7 @@ class DataTree(object):
                         raise PreviouslyUnseenBehaviour()
                 else:
                     assert isinstance(node.transition, Killed)
+                    data.observer.kill_branch()
                     node = node.transition.next_node
         except StopTest:
             pass
@@ -367,7 +388,7 @@ class TreeRecordingObserver(DataObserver):
                 # stopped
                 inconsistent_generation()
             else:
-                assert isinstance(trans, Branch)
+                assert isinstance(trans, Branch), trans
                 if n_bits != trans.bit_length:
                     inconsistent_generation()
                 try:

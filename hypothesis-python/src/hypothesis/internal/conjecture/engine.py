@@ -36,7 +36,11 @@ from hypothesis.internal.conjecture.data import (
     Status,
     StopTest,
 )
-from hypothesis.internal.conjecture.datatree import DataTree, TreeRecordingObserver
+from hypothesis.internal.conjecture.datatree import (
+    DataTree,
+    PreviouslyUnseenBehaviour,
+    TreeRecordingObserver,
+)
 from hypothesis.internal.conjecture.junkdrawer import uniform
 from hypothesis.internal.conjecture.shrinker import Shrinker, sort_key
 from hypothesis.internal.healthcheck import fail_health_check
@@ -553,6 +557,11 @@ class ConjectureRunner(object):
                     prefix + hbytes(BUFFER_SIZE)
                 )
 
+                # We might have hit the cap on number of examples we should
+                # run when calculating the minimal example.
+                if not should_generate_more():
+                    break
+
                 if (
                     # If the minimal example starting from a prefix isn't valid,
                     # we skip over it while we're looking for small examples.
@@ -562,6 +571,9 @@ class ConjectureRunner(object):
                     # If the example is valid and we've read all of it then
                     # there's nothing left to do here.
                     or len(minimal_example.buffer) == len(prefix)
+                    # We might have exhausted the prefix when we explored
+                    # all of the zeroes.
+                    or self.tree.is_prefix_exhausted(prefix)
                 ):
                     # There are some circumstances where we fail repeatedly
                     # with a large block of bytes right towards the end.
@@ -575,9 +587,27 @@ class ConjectureRunner(object):
                         prefix
                     )
 
+            # We could end up in a situation where even though the prefix was
+            # novel when we generated it, because we've now tried zero extending
+            # it not all possible continuations of it will be novel. In order to
+            # avoid making redundant test calls, we rerun it in simulation mode
+            # first. If this has a predictable result, then we don't bother
+            # running the test function for real here. If however we encounter
+            # some novel behaviour, we try again with the real test function,
+            # starting from the new novel prefix that has discovered.
+            try:
+                trial_data = self.new_conjecture_data(
+                    draw_bytes_with(prefix, parameter), max_length=max_length
+                )
+                self.tree.simulate_test_function(trial_data)
+                continue
+            except PreviouslyUnseenBehaviour:
+                pass
+
             data = self.new_conjecture_data(
-                draw_bytes_with(prefix, parameter), max_length=max_length
+                draw_bytes_with(trial_data.buffer, parameter), max_length=max_length
             )
+
             self.test_function(data)
 
             self.optimise_all(data)
