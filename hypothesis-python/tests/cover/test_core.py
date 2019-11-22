@@ -106,7 +106,7 @@ def test_pytest_skip_skips_shrinking():
 
 @checks_deprecated_behaviour
 def test_can_find_with_db_eq_none():
-    find(s.integers(), bool, settings(database=None))
+    find(s.integers(), bool, settings(database=None, max_examples=100))
 
 
 @checks_deprecated_behaviour
