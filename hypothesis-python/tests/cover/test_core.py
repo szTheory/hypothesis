@@ -77,7 +77,7 @@ def test_settings_are_default_in_given(x):
 def test_given_shrinks_pytest_helper_errors():
     final_value = [None]
 
-    @settings(derandomize=True)
+    @settings(derandomize=True, max_examples=100)
     @given(s.integers())
     def inner(x):
         final_value[0] = x
