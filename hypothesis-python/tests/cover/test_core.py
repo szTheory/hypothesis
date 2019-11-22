@@ -92,7 +92,7 @@ def test_given_shrinks_pytest_helper_errors():
 def test_pytest_skip_skips_shrinking():
     values = []
 
-    @settings(derandomize=True)
+    @settings(derandomize=True, max_examples=100)
     @given(s.integers())
     def inner(x):
         values.append(x)

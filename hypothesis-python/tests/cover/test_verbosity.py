@@ -86,7 +86,11 @@ def test_prints_initial_attempts_on_find():
                     return False
                 return x not in seen
 
-            find(integers(), not_first, settings=settings(verbosity=Verbosity.verbose))
+            find(
+                integers(),
+                not_first,
+                settings=settings(verbosity=Verbosity.verbose, max_examples=1000),
+            )
 
         foo()
 
