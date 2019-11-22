@@ -30,7 +30,7 @@ from tests.common.utils import capture_out, non_covering_examples
 def test_raises_multiple_failures_with_varying_type():
     target = [None]
 
-    @settings(database=None)
+    @settings(database=None, max_examples=100)
     @given(st.integers())
     def test(i):
         if abs(i) < 1000:
