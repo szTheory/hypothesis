@@ -63,8 +63,9 @@ def test_does_not_attempt_to_shrink_flaky_errors():
     @settings(database=None)
     @given(integers())
     def test(x):
-        values.append(x)
-        assert len(values) != 1
+        if x != 0:
+            values.append(x)
+            assert len(values) != 1
 
     with pytest.raises(Flaky):
         test()
