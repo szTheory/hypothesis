@@ -540,6 +540,7 @@ class ConjectureRunner(object):
 
         while should_generate_more():
             prefix = self.generate_novel_prefix()
+            assert len(prefix) <= BUFFER_SIZE
 
             # We control growth during initial example generation, for two
             # reasons:
@@ -573,7 +574,7 @@ class ConjectureRunner(object):
 
                 if consecutive_zero_extend_is_invalid < 5:
                     minimal_example = self.cached_test_function(
-                        prefix + hbytes(BUFFER_SIZE)
+                        prefix + hbytes(BUFFER_SIZE - len(prefix))
                     )
 
                     if minimal_example.status >= Status.VALID:
@@ -583,6 +584,8 @@ class ConjectureRunner(object):
                         consecutive_zero_extend_is_invalid = 0
                     else:
                         consecutive_zero_extend_is_invalid += 1
+
+                max_length = min(max_length, BUFFER_SIZE)
 
                 # We might have hit the cap on number of examples we should
                 # run when calculating the minimal example.
