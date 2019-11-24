@@ -585,34 +585,34 @@ class ConjectureRunner(object):
                     else:
                         consecutive_zero_extend_is_invalid += 1
 
+                    # We could end up in a situation where even though the prefix was
+                    # novel when we generated it, because we've now tried zero extending
+                    # it not all possible continuations of it will be novel. In order to
+                    # avoid making redundant test calls, we rerun it in simulation mode
+                    # first. If this has a predictable result, then we don't bother
+                    # running the test function for real here. If however we encounter
+                    # some novel behaviour, we try again with the real test function,
+                    # starting from the new novel prefix that has discovered.
+                    try:
+                        trial_data = self.new_conjecture_data(
+                            draw_bytes_with(prefix, parameter), max_length=max_length
+                        )
+                        self.tree.simulate_test_function(trial_data)
+                        continue
+                    except PreviouslyUnseenBehaviour:
+                        pass
+
+                    # If the simulation entered part of the tree that has been killed,
+                    # we don't want to run this.
+                    if trial_data.observer.killed:
+                        continue
+
                 max_length = min(max_length, BUFFER_SIZE)
 
                 # We might have hit the cap on number of examples we should
                 # run when calculating the minimal example.
                 if not should_generate_more():
                     break
-
-                # We could end up in a situation where even though the prefix was
-                # novel when we generated it, because we've now tried zero extending
-                # it not all possible continuations of it will be novel. In order to
-                # avoid making redundant test calls, we rerun it in simulation mode
-                # first. If this has a predictable result, then we don't bother
-                # running the test function for real here. If however we encounter
-                # some novel behaviour, we try again with the real test function,
-                # starting from the new novel prefix that has discovered.
-                try:
-                    trial_data = self.new_conjecture_data(
-                        draw_bytes_with(prefix, parameter), max_length=max_length
-                    )
-                    self.tree.simulate_test_function(trial_data)
-                    continue
-                except PreviouslyUnseenBehaviour:
-                    pass
-
-                # If the simulation entered part of the tree that has been killed,
-                # we don't want to run this.
-                if trial_data.observer.killed:
-                    continue
 
                 prefix = trial_data.buffer
             else:
