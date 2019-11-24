@@ -564,6 +564,7 @@ class ConjectureRunner(object):
             if (
                 self.valid_examples <= small_example_cap
                 and self.call_count <= 5 * small_example_cap
+                and not self.interesting_examples
             ):
                 # If we didn't get a valid example then we can't reliably
                 # use the length to predict the size of the buffer, so we
